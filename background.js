@@ -1,7 +1,7 @@
 const FREE_LIMIT = 15;
   const GLOBAL_DOMAIN = "__global__";
   const API_BASE_URL = "https://eraseex-beta.vercel.app/api";
-  const CHECKOUT_URL = "https://tmft.lemonsqueezy.com/checkout/buy/6a910d3d-2a10-43e9-9bac-7a06354d34ac";
+  const CHECKOUT_URL = "https://payhip.com/b/SHc4b";
 
   const PRESET_SELECTORS = [
     '[class*="cookie-banner"]','[id*="cookie-banner"]','[class*="cookie-notice"]',
