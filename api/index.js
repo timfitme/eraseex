@@ -1,72 +1,77 @@
-const LEMON_API_KEY = process.env.LEMON_API_KEY;
-  const PRODUCT_ID = "1144322";
+const PAYHIP_API_KEY = process.env.PAYHIP_API_KEY;
+const PAYHIP_PRODUCT_LINK = process.env.PAYHIP_PRODUCT_LINK;
 
-  module.exports = async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+module.exports = async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-    const path = req.url.replace(/^\/api/, "");
+  const url = req.url || "";
+  const path = url.replace(/^\/api/, "").split("?")[0];
 
-    // Webhook from LemonSqueezy — just acknowledge
-    if (path === "/webhook" && req.method === "POST") {
-      return res.json({ ok: true });
+  if (path === "/" || path === "" || path === "/health") {
+    return res.json({ status: "ok", version: "2.1.0" });
+  }
+
+  if (path === "/webhook") {
+    return res.json({ ok: true });
+  }
+
+  if (path === "/license/validate") {
+    const { key } = req.body || {};
+    if (!key) return res.json({ valid: false, error: "no_key" });
+
+    const trimmedKey = key.trim();
+
+    if (!PAYHIP_API_KEY || !PAYHIP_PRODUCT_LINK) {
+      return res.json({ valid: false, error: "server_misconfigured" });
     }
 
-    // License key validation — stateless, always calls LemonSqueezy API directly
-    if (path === "/license/validate" && req.method === "POST") {
-      const { key } = req.body || {};
-      if (!key) return res.json({ valid: false, error: "no_key" });
+    // Пробуем разные форматы product_link
+    const formats = [
+      PAYHIP_PRODUCT_LINK,           // b/SHc4b (как есть)
+      PAYHIP_PRODUCT_LINK.replace(/^b\//, ""), // SHc4b (без b/)
+    ];
 
-      const trimmedKey = key.trim();
-
-      if (!LEMON_API_KEY) {
-        console.error("LEMON_API_KEY is not set on Vercel!");
-        return res.json({ valid: false, error: "server_misconfigured" });
-      }
-
+    for (const productLink of formats) {
       try {
+        const params = new URLSearchParams({
+          product_link: productLink,
+          license_key: trimmedKey,
+        });
+
         const validateRes = await fetch(
-          "https://api.lemonsqueezy.com/v1/licenses/validate",
+          `https://payhip.com/api/v1/license/verify?${params.toString()}`,
           {
-            method: "POST",
+            method: "GET",
             headers: {
-              Authorization: `Bearer ${LEMON_API_KEY}`,
+              Authorization: `Bearer ${PAYHIP_API_KEY}`,
               Accept: "application/json",
-              "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: new URLSearchParams({
-              license_key: trimmedKey,
-              instance_name: "chrome-extension",
-            }),
           }
         );
 
         const data = await validateRes.json();
-        console.log("LS validate response:", JSON.stringify(data));
+        console.log(`Payhip [${productLink}]:`, JSON.stringify(data));
 
-        if (data && data.valid === true) {
-          const productId = String((data.license_key && data.license_key.attributes && data.license_key.attributes.product_id) || "");
-          if (productId && PRODUCT_ID && productId !== PRODUCT_ID) {
-            return res.json({ valid: false, error: "wrong_product" });
-          }
-          return res.json({ valid: true, email: (data.meta && data.meta.customer_email) || "" });
+        if (data && data.data && data.data.enabled === true) {
+          return res.json({ valid: true, email: data.data.customer_email || "" });
         }
 
-        return res.json({ valid: false, error: (data && data.error) || "invalid_key" });
+        // Если ключ найден но не enabled — сразу возвращаем false
+        if (data && data.data) {
+          return res.json({ valid: false, error: "key_disabled" });
+        }
+
       } catch (e) {
-        console.error("LemonSqueezy API error:", e.message);
-        return res.json({ valid: false, error: "network_error" });
+        console.error("Payhip error:", e.message);
       }
     }
 
-    // Healthcheck
-    if (path === "/" || path === "") {
-      return res.json({ status: "ok", version: "2.0.0" });
-    }
+    return res.json({ valid: false, error: "invalid_key" });
+  }
 
-    return res.status(404).json({ error: "not found" });
-  };
-  
+  return res.status(404).json({ error: "not found", path });
+};
