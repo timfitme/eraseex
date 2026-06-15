@@ -1,9 +1,9 @@
-const FREE_LIMIT = 7;
+const FREE_LIMIT = 5;
 
 // API base URL — update this to your deployed app URL
-const API_BASE_URL = "https://fe4c8ea4-5dff-4783-9f5b-ba96c2bf0ad8-00-1bdvlx3xcvrvz.picard.replit.dev/api";
+const API_BASE_URL = "https://eraseex.vercel.app/api";
 
-// LemonSqueezy checkout URL — set this to your product checkout link
+// LemonSqueezy checkout URL
 const CHECKOUT_URL = "https://tmft.lemonsqueezy.com/checkout/buy/6a910d3d-2a10-43e9-9bac-7a06354d34ac";
 
 chrome.runtime.onInstalled.addListener(() => {
