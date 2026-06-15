@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
           {
             method: "GET",
             headers: {
-              Authorization: `Bearer ${PAYHIP_API_KEY}`,
+              "payhip-api-key": PAYHIP_API_KEY,
               Accept: "application/json",
             },
           }
