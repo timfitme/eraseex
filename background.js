@@ -1,7 +1,7 @@
 const FREE_LIMIT = 15;
   const GLOBAL_DOMAIN = "__global__";
   const API_BASE_URL = "https://eraseex-beta.vercel.app/api";
-  const CHECKOUT_URL = "https://payhip.com/b/SHc4b";
+  const CHECKOUT_URL = "https://payhip.com/b/REPLACE_WITH_YOUR_PAYHIP_PRODUCT_LINK";
 
   const PRESET_SELECTORS = [
     '[class*="cookie-banner"]','[id*="cookie-banner"]','[class*="cookie-notice"]',
