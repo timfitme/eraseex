@@ -28,12 +28,9 @@ let currentDomain = "";
   const cleanersSection    = $("cleaners-section");
   const cleanersList       = $("cleaners-list");
   const autoCleanBtn       = $("auto-clean-btn");
-  const globalSection      = $("global-section");
-  const globalRulesList    = $("global-rules-list");
-  const globalInput        = $("global-input");
-  const globalAddBtn       = $("global-add-btn");
-  const globalCountBadge   = $("global-count-badge");
-  const applyPresetsBtn    = $("apply-presets-btn");
+  const focusSection       = $("focus-section");
+  const focusToggle        = $("focus-toggle");
+  const focusStatus        = $("focus-status");
   const statsSitesList     = $("stats-sites-list");
   const statsTotalLabel    = $("stats-total-label");
   const premiumCodeInput   = $("premium-code");
@@ -117,53 +114,27 @@ let currentDomain = "";
     });
   }
 
-  // ── Render global rules ────────────────────────────────────────────────────
-  function renderGlobalRules(rules) {
-    if (!globalRulesList) return;
-    const globalList = (rules["__global__"] || []);
-    if (globalCountBadge) globalCountBadge.textContent = globalList.length;
-    if (globalList.length === 0) {
-      globalRulesList.innerHTML = '<div class="empty-state">No global rules — applied on every site</div>';
-      return;
-    }
-    globalRulesList.innerHTML = globalList.map((sel, idx) => `
-      <div class="rule-item" data-gidx="${idx}">
-        <span class="rule-selector" title="${sel}">${sel}</span>
-        <div class="rule-actions">
-          <button class="icon-btn delete global-del" data-sel="${sel}" title="Remove">✕</button>
-        </div>
-      </div>
-    `).join('');
-    globalRulesList.querySelectorAll(".global-del").forEach(btn => {
-      btn.addEventListener("click", () =>
-        chrome.runtime.sendMessage({ type: "REMOVE_GLOBAL_RULE", selector: btn.dataset.sel }, () => loadState()));
-    });
+  // ── Focus Mode toggle ──────────────────────────────────────────────────────
+  let _focusMode = false;
+
+  function updateFocusUI() {
+    if (!focusToggle) return;
+    focusToggle.classList.toggle("active", _focusMode);
+    if (focusStatus) focusStatus.textContent = _focusMode ? "ON" : "OFF";
   }
 
-  // ── Add global rule ────────────────────────────────────────────────────────
-  function addGlobalRule() {
-    const sel = (globalInput?.value || "").trim();
-    if (!sel) return;
-    chrome.runtime.sendMessage({ type: "ADD_GLOBAL_RULE", selector: sel }, (res) => {
+  focusToggle?.addEventListener("click", () => {
+    const newState = !_focusMode;
+    chrome.runtime.sendMessage({ type: "TOGGLE_FOCUS_MODE", enabled: newState }, (res) => {
       if (res?.success) {
-        if (globalInput) globalInput.value = "";
-        loadState();
+        _focusMode = newState;
+        updateFocusUI();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "REAPPLY_CLEANERS" }, () => {});
+        });
+        showNotice(_focusMode ? "Focus Mode ON — distractions hidden everywhere." : "Focus Mode OFF.");
       } else {
-        showNotice("Global rules are a Premium feature.", { showUpgrade: true });
-      }
-    });
-  }
-  globalAddBtn?.addEventListener("click", addGlobalRule);
-  globalInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addGlobalRule(); } });
-
-  // ── Quick presets ──────────────────────────────────────────────────────────
-  applyPresetsBtn?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "APPLY_PRESETS" }, (res) => {
-      if (res?.success) {
-        showNotice(`Added ${res.added} preset rules (cookie banners, GDPR, ads).`);
-        loadState();
-      } else {
-        showNotice("Quick presets are a Premium feature.", { showUpgrade: true });
+        showNotice("Focus Mode is a Premium feature.", { showUpgrade: true });
       }
     });
   });
@@ -179,21 +150,16 @@ let currentDomain = "";
     cleanersList.innerHTML = ids.map(id => {
       const preset = _cleanerPresets[id];
       const enabled = !!_enabledCleaners[id];
-      return `<div class="cleaner-row">
-        <span class="cleaner-name">${preset.label}</span>
-        <label class="cleaner-toggle">
-          <input type="checkbox" data-cleaner="${id}" ${enabled ? "checked" : ""}/>
-          <span class="cleaner-slider"></span>
-        </label>
-      </div>`;
+      return `<button class="cleaner-chip${enabled ? ' active' : ''}" data-cleaner="${id}">${preset.label}</button>`;
     }).join('');
-    cleanersList.querySelectorAll('input[data-cleaner]').forEach(chk => {
-      chk.addEventListener('change', () => {
-        const id = chk.dataset.cleaner;
-        const enabled = chk.checked;
+    cleanersList.querySelectorAll('.cleaner-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const id = chip.dataset.cleaner;
+        const enabled = !_enabledCleaners[id];
         chrome.runtime.sendMessage({ type: "TOGGLE_CLEANER", id, enabled }, (res) => {
           if (res?.success) {
             _enabledCleaners[id] = enabled;
+            chip.classList.toggle('active', enabled);
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
               if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "REAPPLY_CLEANERS" }, () => {});
             });
@@ -227,18 +193,18 @@ let currentDomain = "";
       statsBar?.classList.remove("hidden");
       statsSection?.classList.remove("hidden");
       cleanersSection?.classList.remove("hidden");
-      globalSection?.classList.remove("hidden");
+      focusSection?.classList.remove("hidden");
       themeSection?.classList.remove("hidden");
       statsText.textContent = totalCount + " element" + (totalCount !== 1 ? "s" : "") + " hidden";
       const siteCount = Object.keys(allRules).filter(d => d !== "__global__").length;
       statsDetail.textContent = "across " + siteCount + " site" + (siteCount !== 1 ? "s" : "");
       renderStatsSites(allRules);
-      renderGlobalRules(allRules);
+      updateFocusUI();
     } else {
       $("counter-bar")?.classList.remove("hidden");
       statsBar?.classList.add("hidden");
       statsSection?.classList.add("hidden");
-      globalSection?.classList.add("hidden");
+      focusSection?.classList.add("hidden");
       themeSection?.classList.add("hidden");
       counterText.textContent = totalCount + " / " + freeLimit + " used";
       const pct = Math.min(100, Math.round(totalCount / freeLimit * 100));
@@ -308,12 +274,12 @@ let currentDomain = "";
       if (!res) return;
       isPremium  = res.isPremium;
       totalCount = res.totalCount;
-      globalCount = res.globalCount || 0;
       freeLimit  = res.freeLimit;
       canAddMore = res.canAddMore;
       allRules   = res.rules || {};
       _enabledCleaners = res.enabledCleaners || {};
       _cleanerPresets  = res.cleanerPresets  || {};
+      _focusMode       = res.focusMode || false;
       renderState();
       loadDomainRules();
       if (isPremium) renderCleaners();

@@ -3,12 +3,52 @@ const FREE_LIMIT = 15;
   const API_BASE_URL = "https://eraseex-beta.vercel.app/api";
   const CHECKOUT_URL = "https://payhip.com/b/SHc4b";
 
-  const PRESET_SELECTORS = [
-    '[class*="cookie-banner"]','[id*="cookie-banner"]','[class*="cookie-notice"]',
-    '[class*="gdpr"]','[id*="gdpr"]','[class*="consent-"]','[id*="consent-"]',
-    '[class*="newsletter-popup"]','[id*="newsletter-popup"]',
-    '[class*="subscribe-popup"]','[class*="email-popup"]',
-    '[class*="ad-banner"]','[class*="sticky-ad"]','[class*="sticky-footer-ad"]',
+  const FOCUS_MODE_SELECTORS = [
+    // Ads
+    '[class*="advertisement"]','[id*="advertisement"]',
+    '[class*="ad-slot"]','[id*="ad-slot"]',
+    '[class*="ad-unit"]','[id*="ad-unit"]',
+    '.adsbygoogle','ins.adsbygoogle','[data-ad-slot]','[data-ad-unit]',
+    '[class*="banner-ad"]','[class*="sticky-ad"]','[class*="leaderboard-ad"]',
+    '[class*="ad-leaderboard"]','[class*="dfp-ad"]','[id*="dfp-ad"]',
+    '[class*="google-ad"]','[id*="google-ad"]',
+    // Sponsored / Outbrain / Taboola
+    '[class*="taboola"]','[id*="taboola"]','.OUTBRAIN','[class*="outbrain"]','[id*="outbrain"]',
+    '[class*="sponsored-content"]','[class*="promoted-content"]',
+    // Related / Recommended sections
+    '[class*="related-posts"]','[id*="related-posts"]',
+    '[class*="related-articles"]','[id*="related-articles"]',
+    '[class*="recommended-articles"]','[class*="recommended-posts"]',
+    '[class*="you-might-also"]','[class*="more-from"]',
+    '[class*="also-like"]','[class*="read-next"]',
+    // Comment sections
+    '#disqus_thread','.disqus-comments','[id*="disqus"]',
+    '#fb-comments','.fb-comments','[class*="comment-section"]','#comments-section',
+    // Social share bars
+    '[class*="social-share"]','[id*="social-share"]',
+    '[class*="share-bar"]','[id*="share-bar"]',
+    '[class*="sharing-buttons"]','[class*="addthis"]','[id*="addthis"]',
+    // Cookie banners
+    '[class*="cookie-banner"]','[id*="cookie-banner"]',
+    '[class*="cookie-consent"]','[id*="cookie-consent"]',
+    '#onetrust-banner-sdk','#onetrust-consent-sdk','.cc-window','.cc-banner',
+    '[class*="gdpr"]','[id*="gdpr"]','[class*="consent-"]',
+    // Newsletter / email popups
+    '[class*="newsletter-popup"]','[class*="subscribe-popup"]',
+    '[class*="email-popup"]','[class*="klaviyo-form"]','[id*="klaviyo-form"]',
+    '.pum-overlay','[class*="optinmonster"]','.om-overlay',
+    // Chat widgets
+    '#hubspot-messages-iframe-container',
+    '[class*="intercom-"]','.intercom-lightweight-app',
+    '#drift-widget','.drift-widget','[class*="drift-widget"]',
+    '#tidio-chat','#tidio-chat-iframe',
+    '.zEWidget-launcher','[class*="zendesk"]',
+    '#fc_widget','#freshworks-container',
+    // Exit intent / overlays
+    '[class*="exit-intent"]','[id*="exit-intent"]',
+    '[class*="overlay-popup"]',
+    // Paywalls
+    '[class*="paywall"]','[id*="paywall"]','#piano-inline-content-wrapper',
   ];
 
   const CLEANER_PRESETS = {
@@ -173,6 +213,7 @@ const FREE_LIMIT = 15;
       if (!data.hiddenRules) chrome.storage.local.set({ hiddenRules: {} });
       if (data.isPremium === undefined) chrome.storage.local.set({ isPremium: false });
       if (!data.enabledCleaners) chrome.storage.local.set({ enabledCleaners: {} });
+      if (data.focusMode === undefined) chrome.storage.local.set({ focusMode: false });
     });
   });
 
@@ -184,18 +225,18 @@ const FREE_LIMIT = 15;
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "GET_STATE") {
-      chrome.storage.local.get(["hiddenRules","isPremium","enabledCleaners"], (data) => {
+      chrome.storage.local.get(["hiddenRules","isPremium","enabledCleaners","focusMode"], (data) => {
         const rules = data.hiddenRules || {};
         const total = countUserRules(rules);
-        const globalCount = (rules[GLOBAL_DOMAIN] || []).length;
         const cleaners = data.enabledCleaners || {};
         sendResponse({
           rules, isPremium: data.isPremium || false,
-          totalCount: total, globalCount,
+          totalCount: total,
           freeLimit: FREE_LIMIT,
           canAddMore: data.isPremium || total < FREE_LIMIT,
           enabledCleaners: cleaners,
           cleanerPresets: CLEANER_PRESETS,
+          focusMode: data.focusMode || false,
         });
       });
       return true;
@@ -223,8 +264,17 @@ const FREE_LIMIT = 15;
       return true;
     }
 
+    if (message.type === "TOGGLE_FOCUS_MODE") {
+      chrome.storage.local.get(["isPremium"], (data) => {
+        if (!data.isPremium) { sendResponse({ success: false, reason: "premium_required" }); return; }
+        const enabled = message.enabled;
+        chrome.storage.local.set({ focusMode: enabled }, () => sendResponse({ success: true }));
+      });
+      return true;
+    }
+
     if (message.type === "GET_CLEANERS_FOR_TAB") {
-      chrome.storage.local.get(["enabledCleaners","isPremium"], (data) => {
+      chrome.storage.local.get(["enabledCleaners","isPremium","focusMode"], (data) => {
         if (!data.isPremium) { sendResponse({ selectors: [] }); return; }
         const enabled = data.enabledCleaners || {};
         const domain = message.domain || "";
@@ -238,6 +288,7 @@ const FREE_LIMIT = 15;
             if (match) selectors.push(...preset.selectors);
           }
         });
+        if (data.focusMode) selectors.push(...FOCUS_MODE_SELECTORS);
         sendResponse({ selectors });
       });
       return true;
@@ -296,44 +347,6 @@ const FREE_LIMIT = 15;
       return true;
     }
 
-    if (message.type === "ADD_GLOBAL_RULE") {
-      chrome.storage.local.get(["hiddenRules","isPremium"], (data) => {
-        if (!data.isPremium) { sendResponse({ success: false, reason: "premium_required" }); return; }
-        const rules = data.hiddenRules || {};
-        if (!rules[GLOBAL_DOMAIN]) rules[GLOBAL_DOMAIN] = [];
-        const sel = message.selector;
-        if (!rules[GLOBAL_DOMAIN].includes(sel)) rules[GLOBAL_DOMAIN].push(sel);
-        chrome.storage.local.set({ hiddenRules: rules }, () => sendResponse({ success: true }));
-      });
-      return true;
-    }
-
-    if (message.type === "REMOVE_GLOBAL_RULE") {
-      chrome.storage.local.get(["hiddenRules","isPremium"], (data) => {
-        if (!data.isPremium) { sendResponse({ success: false, reason: "premium_required" }); return; }
-        const rules = data.hiddenRules || {};
-        if (rules[GLOBAL_DOMAIN]) {
-          rules[GLOBAL_DOMAIN] = rules[GLOBAL_DOMAIN].filter(s => s !== message.selector);
-          if (rules[GLOBAL_DOMAIN].length === 0) delete rules[GLOBAL_DOMAIN];
-        }
-        chrome.storage.local.set({ hiddenRules: rules }, () => sendResponse({ success: true }));
-      });
-      return true;
-    }
-
-    if (message.type === "APPLY_PRESETS") {
-      chrome.storage.local.get(["hiddenRules","isPremium"], (data) => {
-        if (!data.isPremium) { sendResponse({ success: false, reason: "premium_required" }); return; }
-        const rules = data.hiddenRules || {};
-        if (!rules[GLOBAL_DOMAIN]) rules[GLOBAL_DOMAIN] = [];
-        let added = 0;
-        PRESET_SELECTORS.forEach(sel => {
-          if (!rules[GLOBAL_DOMAIN].includes(sel)) { rules[GLOBAL_DOMAIN].push(sel); added++; }
-        });
-        chrome.storage.local.set({ hiddenRules: rules }, () => sendResponse({ success: true, added }));
-      });
-      return true;
-    }
 
     if (message.type === "ACTIVATE_PREMIUM") {
       const licenseKey = message.code.trim();

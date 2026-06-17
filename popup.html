@@ -98,19 +98,16 @@
           <div id="cleaners-list" class="cleaners-list"></div>
         </div>
 
-        <!-- Premium: global rules -->
-        <div id="global-section" class="global-section hidden">
-          <div class="list-header">
-            <span class="label">🌍 Global rules <span id="global-count-badge" class="count-pill">0</span></span>
-            <button id="apply-presets-btn" class="link-btn" title="Add one-click rules to hide cookie banners, GDPR notices & ad banners">⚡ Quick presets</button>
-          </div>
-          <div id="global-rules-list" class="rules-list">
-            <div class="empty-state">No global rules — applied on every site</div>
-          </div>
-          <div class="global-add-row">
-            <input id="global-input" class="text-input" type="text" placeholder="CSS selector e.g. .cookie-banner" />
-            <button id="global-add-btn" class="btn-xs">Add</button>
-          </div>
+        <!-- Premium: Focus Mode -->
+        <div id="focus-section" class="focus-section hidden">
+          <button id="focus-toggle" class="btn-focus-mode">
+            <span class="focus-icon">🎯</span>
+            <div class="focus-text">
+              <span class="focus-title">Focus Mode</span>
+              <span class="focus-desc">Hides ads, sidebars &amp; distractions on every site</span>
+            </div>
+            <span id="focus-status" class="focus-badge">OFF</span>
+          </button>
         </div>
 
         <!-- Premium: themes -->
@@ -126,7 +123,7 @@
 
         <!-- Free: upgrade hint -->
         <div id="upgrade-hint" class="upgrade-hint hidden">
-          <button id="upgrade-hint-btn" class="btn-upgrade-hint">⚡ Upgrade to Premium — unlimited elements + global rules</button>
+          <button id="upgrade-hint-btn" class="btn-upgrade-hint">⚡ Upgrade to Premium — Focus Mode + cleaners + unlimited hides</button>
         </div>
       </div>
 
@@ -144,7 +141,7 @@
             <div class="feature-item"><span class="feature-check">✓</span> Chat Widget Remover</div>
             <div class="feature-item"><span class="feature-check">✓</span> Newsletter Popup Remover</div>
             <div class="feature-item"><span class="feature-check">✓</span> One-click Auto Clean</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Global rules</div>
+            <div class="feature-item"><span class="feature-check">✓</span> 🎯 Focus Mode — clean web everywhere</div>
           </div>
           <button id="buy-btn" class="btn-buy">⚡ Buy Premium — $3.99</button>
           <div class="divider">already purchased?</div>
