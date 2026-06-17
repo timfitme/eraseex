@@ -45,7 +45,7 @@
                 <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/>
                 <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
               </svg>
-              <span id="counter-text">0 / 15 used</span>
+              <span id="counter-text">0 / 30 used</span>
             </button>
             <button id="clear-all-btn" class="link-btn danger">Clear all</button>
           </div>
@@ -66,7 +66,7 @@
         </div>
 
         <div id="limit-banner" class="limit-banner hidden">
-          <span>Free limit reached (15 elements).</span>
+          <span>Free limit reached (30 elements).</span>
           <button id="upgrade-btn" class="link-btn">Upgrade →</button>
         </div>
 
@@ -98,7 +98,18 @@
           <div id="cleaners-list" class="cleaners-list"></div>
         </div>
 
-        <!-- Premium: Focus Mode -->
+        <!-- Premium: Hide by text -->
+        <div id="textmatch-section" class="textmatch-section hidden">
+          <div class="list-header">
+            <span class="label">🔍 Hide by text</span>
+          </div>
+          <div class="textmatch-row">
+            <input id="textmatch-input" class="text-input" type="text" placeholder="e.g. Subscribe, Sponsored…" />
+            <button id="textmatch-add" class="btn-xs">Hide</button>
+          </div>
+        </div>
+
+        <!-- Premium: Focus Mode + Focus Hours -->
         <div id="focus-section" class="focus-section hidden">
           <button id="focus-toggle" class="btn-focus-mode">
             <span class="focus-icon">🎯</span>
@@ -108,9 +119,26 @@
             </div>
             <span id="focus-status" class="focus-badge">OFF</span>
           </button>
+          <div class="schedule-row">
+            <label class="schedule-label">
+              <input id="schedule-enabled" type="checkbox" />
+              <span>⏰ Auto-activate during work hours</span>
+            </label>
+          </div>
+          <div id="schedule-config" class="schedule-config hidden">
+            <div class="schedule-time-row">
+              <input id="schedule-start" class="time-input" type="number" min="0" max="23" value="9" />
+              <span class="schedule-sep">—</span>
+              <input id="schedule-end" class="time-input" type="number" min="0" max="23" value="18" />
+              <span class="schedule-hint">h</span>
+              <label class="schedule-wdays">
+                <input id="schedule-weekdays" type="checkbox" checked />
+                <span>Mon–Fri only</span>
+              </label>
+            </div>
+          </div>
         </div>
 
-        <!-- Premium: themes -->
         <div id="theme-section" class="theme-section hidden">
           <div class="label">Theme</div>
           <div class="theme-swatches">
@@ -118,12 +146,26 @@
             <button class="theme-swatch" data-theme="dark"><span class="swatch-dot" style="background:#111111"></span>Dark</button>
             <button class="theme-swatch" data-theme="blue"><span class="swatch-dot" style="background:#3b5bdb"></span>Blue</button>
             <button class="theme-swatch" data-theme="green"><span class="swatch-dot" style="background:#059669"></span>Green</button>
+			<button class="theme-swatch" data-theme="purple"><span class="swatch-dot" style="background:#c71585"></span>Purple</button>
+          </div>
+        </div>
+
+        <!-- Free: premium preview teaser -->
+        <div id="premium-preview" class="premium-preview hidden">
+          <div class="preview-title">⚡ Unlock Premium</div>
+          <div class="preview-grid">
+            <div class="preview-item">🎯<span>Focus Mode</span></div>
+            <div class="preview-item">🔍<span>Hide by text</span></div>
+            <div class="preview-item">🧹<span>11 site cleaners</span></div>
+            <div class="preview-item">⏰<span>Focus Hours</span></div>
+            <div class="preview-item">♾️<span>Unlimited hides</span></div>
+            <div class="preview-item">📊<span>Stats dashboard</span></div>
           </div>
         </div>
 
         <!-- Free: upgrade hint -->
         <div id="upgrade-hint" class="upgrade-hint hidden">
-          <button id="upgrade-hint-btn" class="btn-upgrade-hint">⚡ Upgrade to Premium — Focus Mode + cleaners + unlimited hides</button>
+          <button id="upgrade-hint-btn" class="btn-upgrade-hint">⚡ Upgrade - 11 site cleaners · Focus Mode · Hide by text</button>
         </div>
       </div>
 
@@ -132,18 +174,14 @@
         <div class="modal-box">
           <div class="modal-title">⚡ Premium</div>
           <div class="features-grid">
-            <div class="feature-item"><span class="feature-check">✓</span> Unlimited hides</div>
-            <div class="feature-item"><span class="feature-check">✓</span> YouTube Cleaner</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Reddit Cleaner</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Facebook Cleaner</div>
-            <div class="feature-item"><span class="feature-check">✓</span> News Cleaner</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Cookie Popup Remover</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Chat Widget Remover</div>
-            <div class="feature-item"><span class="feature-check">✓</span> Newsletter Popup Remover</div>
-            <div class="feature-item"><span class="feature-check">✓</span> One-click Auto Clean</div>
-            <div class="feature-item"><span class="feature-check">✓</span> 🎯 Focus Mode — clean web everywhere</div>
+            <div class="feature-item"><span class="feature-check">✓</span> Unlimited hides (free: 30)</div>
+            <div class="feature-item"><span class="feature-check">✓</span> Sites cleaners (Youtube, Instagram etc</div>
+            <div class="feature-item"><span class="feature-check">✓</span> 🎯 Focus Mode + ⏰ Auto work hours</div>
+            <div class="feature-item"><span class="feature-check">✓</span> 🔍 Hide by text (e.g. "Sponsored")</div>
+            <div class="feature-item"><span class="feature-check">✓</span> ⚡ One-click Auto Clean All</div>
+            <div class="feature-item"><span class="feature-check">✓</span> Export / import rules</div>
           </div>
-          <button id="buy-btn" class="btn-buy">⚡ Buy Premium — $3.99</button>
+          <button id="buy-btn" class="btn-buy">⚡ Buy Premium - $3.99</button>
           <div class="divider">already purchased?</div>
           <input id="premium-code" class="text-input" type="text" placeholder="Enter your license key…" />
           <div id="code-error" class="field-error hidden">Invalid or expired license key</div>

@@ -222,7 +222,7 @@
           if (res?.success) { saved++; }
           else if (res?.reason === "limit_reached" && !failed) {
             failed = true;
-            showToast("Free limit reached (15) — open the extension to upgrade", true);
+            showToast("Free limit reached (30) — open the extension to upgrade", true);
           }
           next(i + 1);
         });

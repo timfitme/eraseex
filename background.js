@@ -1,4 +1,4 @@
-const FREE_LIMIT = 15;
+const FREE_LIMIT = 30;
   const GLOBAL_DOMAIN = "__global__";
   const API_BASE_URL = "https://eraseex-beta.vercel.app/api";
   const CHECKOUT_URL = "https://payhip.com/b/SHc4b";
@@ -206,6 +206,67 @@ const FREE_LIMIT = 15;
         "[id*='klaviyo-form']",
       ],
     },
+    tiktok: {
+      label: "TikTok Cleaner",
+      domains: ["tiktok.com", "www.tiktok.com"],
+      global: false,
+      selectors: [
+        "[class*='DivAdContainer']",
+        "[class*='SparkAdBubble']",
+        "[data-e2e='ad-video-card']",
+        "[class*='AdLinkContainer']",
+        "[class*='tt-ad']",
+        "[class*='ad-indicator']",
+        "[data-e2e='ad-indicator-icon']",
+      ],
+    },
+    linkedin: {
+      label: "LinkedIn Cleaner",
+      domains: ["linkedin.com", "www.linkedin.com"],
+      global: false,
+      selectors: [
+        ".ad-banner-container",
+        ".ad-banner-slot",
+        "[data-ad-banner]",
+        ".promoted-content",
+        ".ads-banner",
+        "section.ad-unit",
+        ".premium-upsell-link",
+        "[data-test-premium-upsell-trigger]",
+        ".artdeco-card.feed-shared-premium-upsell",
+        ".pv-ad-sidebar",
+        "[data-view-name='sponsored-updates-message']",
+        ".feed-follows-module",
+      ],
+    },
+    instagram: {
+      label: "Instagram Cleaner",
+      domains: ["instagram.com", "www.instagram.com"],
+      global: false,
+      selectors: [
+        "[aria-label='Sponsored']",
+        "[data-bloks-name*='ads']",
+        "div[class*='_aaud']",
+        "div[class*='_aate']",
+        "div[data-visualcompletion='media-vc-image'][aria-label*='Sponsored']",
+        "div[class*='_aaqg'] a[href='/reels/']",
+      ],
+    },
+    x: {
+      label: "X / Twitter Cleaner",
+      domains: ["twitter.com", "www.twitter.com", "x.com", "www.x.com"],
+      global: false,
+      selectors: [
+        "[data-testid='placementTracking']",
+        "[aria-label='Timeline: Trending now']",
+        "[aria-label='Who to follow']",
+        "[data-testid='ScrollSnap-List']",
+        "aside[role='complementary']",
+        "[href='/i/premium_sign_up']",
+        "[data-testid='UserCell'][href*='premium']",
+        "nav[aria-label='Primary'] + div [data-testid='UserCell']",
+      ],
+    },
   };
 
   chrome.runtime.onInstalled.addListener(() => {
@@ -214,7 +275,37 @@ const FREE_LIMIT = 15;
       if (data.isPremium === undefined) chrome.storage.local.set({ isPremium: false });
       if (!data.enabledCleaners) chrome.storage.local.set({ enabledCleaners: {} });
       if (data.focusMode === undefined) chrome.storage.local.set({ focusMode: false });
+      if (!data.focusSchedule) chrome.storage.local.set({ focusSchedule: { enabled: false, startHour: 9, endHour: 18, weekdaysOnly: true } });
     });
+    chrome.alarms.create("focusScheduleCheck", { periodInMinutes: 1 });
+  });
+
+  // Re-create alarm on startup (service workers can be killed)
+  chrome.alarms.get("focusScheduleCheck", (a) => { if (!a) chrome.alarms.create("focusScheduleCheck", { periodInMinutes: 1 }); });
+
+  function applySchedule() {
+    chrome.storage.local.get(["isPremium","focusSchedule","focusMode"], (data) => {
+      if (!data.isPremium || !data.focusSchedule?.enabled) return;
+      const now = new Date();
+      const hour = now.getHours();
+      const day  = now.getDay();
+      const s = data.focusSchedule;
+      const isWorkDay = s.weekdaysOnly ? (day >= 1 && day <= 5) : true;
+      const shouldFocus = isWorkDay && hour >= s.startHour && hour < s.endHour;
+      if (shouldFocus !== !!data.focusMode) {
+        chrome.storage.local.set({ focusMode: shouldFocus }, () => {
+          chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+              chrome.tabs.sendMessage(tab.id, { type: "REAPPLY_CLEANERS" }, () => {});
+            });
+          });
+        });
+      }
+    });
+  }
+
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "focusScheduleCheck") applySchedule();
   });
 
   function countUserRules(rules) {
@@ -237,6 +328,7 @@ const FREE_LIMIT = 15;
           enabledCleaners: cleaners,
           cleanerPresets: CLEANER_PRESETS,
           focusMode: data.focusMode || false,
+          focusSchedule: data.focusSchedule || { enabled: false, startHour: 9, endHour: 18, weekdaysOnly: true },
         });
       });
       return true;
@@ -260,6 +352,17 @@ const FREE_LIMIT = 15;
         const cleaners = data.enabledCleaners || {};
         Object.keys(CLEANER_PRESETS).forEach(id => { cleaners[id] = true; });
         chrome.storage.local.set({ enabledCleaners: cleaners }, () => sendResponse({ success: true }));
+      });
+      return true;
+    }
+
+    if (message.type === "SAVE_FOCUS_SCHEDULE") {
+      chrome.storage.local.get(["isPremium"], (data) => {
+        if (!data.isPremium) { sendResponse({ success: false }); return; }
+        chrome.storage.local.set({ focusSchedule: message.schedule }, () => {
+          applySchedule();
+          sendResponse({ success: true });
+        });
       });
       return true;
     }

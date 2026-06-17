@@ -31,6 +31,14 @@ let currentDomain = "";
   const focusSection       = $("focus-section");
   const focusToggle        = $("focus-toggle");
   const focusStatus        = $("focus-status");
+  const textmatchSection   = $("textmatch-section");
+  const textmatchInput     = $("textmatch-input");
+  const textmatchAdd       = $("textmatch-add");
+  const scheduleEnabled    = $("schedule-enabled");
+  const scheduleConfig     = $("schedule-config");
+  const scheduleStart      = $("schedule-start");
+  const scheduleEnd        = $("schedule-end");
+  const scheduleWeekdays   = $("schedule-weekdays");
   const statsSitesList     = $("stats-sites-list");
   const statsTotalLabel    = $("stats-total-label");
   const premiumCodeInput   = $("premium-code");
@@ -66,13 +74,8 @@ let currentDomain = "";
   }
   document.querySelectorAll(".theme-swatch").forEach(btn => {
     btn.addEventListener("click", () => {
-      if (isPremium) {
-        applyTheme(btn.dataset.theme);
-        chrome.storage.local.set({ selectedTheme: btn.dataset.theme });
-      } else {
-        chrome.storage.local.get(["selectedTheme"], d => applyTheme(d.selectedTheme || "light"));
-        showNotice("Themes are a Premium feature.", { showUpgrade: true });
-      }
+      applyTheme(btn.dataset.theme);
+      chrome.storage.local.set({ selectedTheme: btn.dataset.theme });
     });
   });
 
@@ -139,6 +142,61 @@ let currentDomain = "";
     });
   });
 
+  // ── Focus Hours schedule ───────────────────────────────────────────────────
+  let _focusSchedule = { enabled: false, startHour: 9, endHour: 18, weekdaysOnly: true };
+
+  function saveSchedule() {
+    const s = {
+      enabled:      scheduleEnabled?.checked || false,
+      startHour:    parseInt(scheduleStart?.value || "9",  10),
+      endHour:      parseInt(scheduleEnd?.value   || "18", 10),
+      weekdaysOnly: scheduleWeekdays?.checked !== false,
+    };
+    chrome.runtime.sendMessage({ type: "SAVE_FOCUS_SCHEDULE", schedule: s }, (res) => {
+      if (res?.success) {
+        _focusSchedule = s;
+        showNotice(s.enabled ? `Focus Hours set: ${s.startHour}:00 – ${s.endHour}:00` : "Focus Hours disabled.");
+      }
+    });
+  }
+
+  function renderScheduleUI(sched) {
+    if (!scheduleEnabled) return;
+    _focusSchedule = sched;
+    scheduleEnabled.checked = sched.enabled;
+    if (scheduleStart)   scheduleStart.value   = sched.startHour;
+    if (scheduleEnd)     scheduleEnd.value      = sched.endHour;
+    if (scheduleWeekdays) scheduleWeekdays.checked = sched.weekdaysOnly !== false;
+    scheduleConfig?.classList.toggle("hidden", !sched.enabled);
+  }
+
+  scheduleEnabled?.addEventListener("change", () => {
+    scheduleConfig?.classList.toggle("hidden", !scheduleEnabled.checked);
+    saveSchedule();
+  });
+  scheduleStart?.addEventListener("change", saveSchedule);
+  scheduleEnd?.addEventListener("change", saveSchedule);
+  scheduleWeekdays?.addEventListener("change", saveSchedule);
+
+  // ── Hide by text ───────────────────────────────────────────────────────────
+  function addTextMatch() {
+    const val = (textmatchInput?.value || "").trim();
+    if (!val) return;
+    const selector = "__regex__" + val;
+    chrome.runtime.sendMessage({ type: "ADD_RULE", domain: currentDomain, selector }, (res) => {
+      if (res?.success) {
+        if (textmatchInput) textmatchInput.value = "";
+        showNotice(`Hiding elements with text "${val}"`);
+        loadState();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: "REAPPLY_RULES" }, () => {});
+        });
+      }
+    });
+  }
+  textmatchAdd?.addEventListener("click", addTextMatch);
+  textmatchInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addTextMatch(); } });
+
   // ── Render cleaners ────────────────────────────────────────────────────────
   let _enabledCleaners = {};
   let _cleanerPresets = {};
@@ -188,24 +246,29 @@ let currentDomain = "";
     badge.textContent = isPremium ? "Premium" : "Free";
     if (upgradeHint) upgradeHint.classList.toggle("hidden", isPremium);
 
+    themeSection?.classList.remove("hidden");
     if (isPremium) {
       $("counter-bar")?.classList.add("hidden");
       statsBar?.classList.remove("hidden");
       statsSection?.classList.remove("hidden");
       cleanersSection?.classList.remove("hidden");
+      textmatchSection?.classList.remove("hidden");
       focusSection?.classList.remove("hidden");
-      themeSection?.classList.remove("hidden");
+      $("premium-preview")?.classList.add("hidden");
       statsText.textContent = totalCount + " element" + (totalCount !== 1 ? "s" : "") + " hidden";
       const siteCount = Object.keys(allRules).filter(d => d !== "__global__").length;
       statsDetail.textContent = "across " + siteCount + " site" + (siteCount !== 1 ? "s" : "");
       renderStatsSites(allRules);
       updateFocusUI();
+      if (_focusSchedule) renderScheduleUI(_focusSchedule);
     } else {
       $("counter-bar")?.classList.remove("hidden");
       statsBar?.classList.add("hidden");
       statsSection?.classList.add("hidden");
+      cleanersSection?.classList.add("hidden");
+      textmatchSection?.classList.add("hidden");
       focusSection?.classList.add("hidden");
-      themeSection?.classList.add("hidden");
+      $("premium-preview")?.classList.remove("hidden");
       counterText.textContent = totalCount + " / " + freeLimit + " used";
       const pct = Math.min(100, Math.round(totalCount / freeLimit * 100));
       progressFill.style.width = pct + "%";
@@ -280,6 +343,7 @@ let currentDomain = "";
       _enabledCleaners = res.enabledCleaners || {};
       _cleanerPresets  = res.cleanerPresets  || {};
       _focusMode       = res.focusMode || false;
+      _focusSchedule   = res.focusSchedule || _focusSchedule;
       renderState();
       loadDomainRules();
       if (isPremium) renderCleaners();
